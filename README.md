@@ -22,3 +22,5 @@ node tests/session-races.cjs
 CI runs these checks. Tests use generic synthetic response fixtures only. The cloud-browser preview inspected the disconnected public shell; it did not run on a Samsung phone or verify hosted backend authentication. No remote deployment was created by this commit.
 
 The login form protects no static source. Real authorisation is server-side. Keep private data, provider account configuration and proprietary trading logic in the private repository. See its operations/evidence documents for TLS, sessions, backup and paper-model limitations.
+
+Public frontend preview: https://langzonedev.github.io/Autotrader-web/ . The private backend must be hosted separately before a real login can work; no active login password has been provisioned. The SVG product icon now matches the existing arrow treatment and removes the retired LS monogram.
