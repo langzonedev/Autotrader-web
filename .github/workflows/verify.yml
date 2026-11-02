@@ -13,3 +13,4 @@ jobs:
       - run: node --check app.js && node --check sw.js
       - run: node tests/privacy.cjs
       - run: node tests/session-races.cjs
+      - run: node tests/risk-controls.cjs

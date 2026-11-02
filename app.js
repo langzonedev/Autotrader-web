@@ -7,6 +7,26 @@ let generation = 0;
 let refreshing = -1;
 let authenticated = false;
 const publicEntry = location.hostname === 'github.io' || location.hostname.endsWith('.github.io');
+let riskCatalog = [], riskRevision = null, riskDirty = false, riskBusy = false;
+function riskPreview() {
+  const selected = riskCatalog.find(p => p.level === Number(byId('riskSlider').value));
+  if (!selected) return;
+  text('riskName',selected.label);
+  text('riskDetails',`Position cap ${Number(selected.maxPositionPct)}% · Total exposure ${Number(selected.maxExposurePct)}% · Cooldown ${selected.cooldownMinutes} min · Drawdown stop ${Number(selected.drawdownStopPct)}%`);
+}
+function renderRisk(status) {
+  if (!status.riskProfile || !Array.isArray(status.riskProfiles)) return;
+  riskCatalog = status.riskProfiles;
+  byId('riskCard').hidden = false;
+  text('riskApplied',`Applied: ${status.riskProfile.label}`);
+  if (!riskDirty && !riskBusy) {
+    byId('riskSlider').value = status.riskProfile.level;
+    riskRevision = status.riskProfile.revision;
+    riskPreview();
+  }
+  byId('riskSlider').disabled = riskBusy;
+  byId('riskApply').disabled = riskBusy || !riskDirty;
+}
 async function request(path, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
@@ -28,6 +48,10 @@ async function request(path, options = {}) {
 function clearPrivate() {
   ['equity','pnl','cash','asOf'].forEach(id => text(id,'—'));
   ['markets','trades','decisions'].forEach(id => byId(id).replaceChildren());
+  byId('riskCard').hidden = true;
+  riskCatalog = []; riskRevision = null; riskDirty = false;
+  ['riskName','riskDetails','riskApplied','riskMessage'].forEach(id=>text(id,''));
+  byId('riskApply').disabled = true;
 }
 function showLoggedIn(yes) {
   authenticated = yes;
@@ -62,6 +86,7 @@ async function refresh() {
     text('source',status.marketSource);
     text('strategy',status.strategy);
     text('serverMessage',status.message);
+    renderRisk(status);
     text('asOf', markets.asOf ? new Date(markets.asOf*1000).toLocaleString() : 'Awaiting first quote');
     text('marketCount', markets.markets.length + ' AUD markets · ' + markets.source);
     text('tradeCount', trades.trades.length + ' recent simulated fills');
@@ -105,6 +130,43 @@ byId('logout').addEventListener('click',async () => {
   catch (error) { generation++; authenticated = true; text('dashboardError','Sign out was not confirmed: '+error.message); }
 });
 byId('refresh').addEventListener('click',() => refresh().catch(() => {}));
+byId('riskSlider').addEventListener('input',()=>{
+  if (!authenticated || riskBusy || riskRevision === null) return;
+  riskDirty = true;
+  riskPreview();
+  byId('riskApply').disabled = false;
+  text('riskMessage','Preview only. Apply to save this profile.');
+});
+byId('riskApply').addEventListener('click',async()=>{
+  if (!authenticated || riskBusy || !riskDirty || riskRevision === null) return;
+  const epoch = generation;
+  riskBusy = true;
+  byId('riskApply').disabled = true;
+  byId('riskSlider').disabled = true;
+  text('riskMessage','Saving profile…');
+  try {
+    await request('/api/paper/profile',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},
+      body:JSON.stringify({level:Number(byId('riskSlider').value),expectedRevision:riskRevision})});
+    if (epoch !== generation) return;
+    riskDirty = false;
+    riskBusy = false;
+    await refresh();
+    if (epoch === generation) text('riskMessage','Profile saved. Live orders remain disabled.');
+  } catch(error) {
+    if (epoch !== generation) return;
+    if (error.status === 401) { showLoggedIn(false); text('loginError','Your session expired. Sign in again.'); }
+    else if (error.status === 409) {
+      riskDirty = false;
+      riskBusy = false;
+      await refresh().catch(()=>{});
+      if (epoch === generation) text('riskMessage',error.message);
+    } else text('riskMessage',error.message);
+  } finally {
+    riskBusy = false;
+    byId('riskSlider').disabled = !authenticated;
+    byId('riskApply').disabled = !authenticated || !riskDirty;
+  }
+});
 for (const [id,path] of [['paperStop','stop'],['paperResume','resume']]) {
   byId(id).addEventListener('click',async () => {
     byId(id).disabled = true;
@@ -133,6 +195,15 @@ if (publicEntry) {
   byId('publicAccess').hidden = false;
   byId('login').hidden = true;
   text('connection', 'Local engine · private access');
+  if (typeof location.hash === 'string' && location.hash.startsWith('#connect=')) {
+    try {
+      const destination = new URL(decodeURIComponent(location.hash.slice(9)));
+      if (destination.protocol !== 'https:' || destination.username || destination.password || destination.search || destination.hash || destination.pathname !== '/') throw new Error('Invalid pairing address.');
+      byId('privateUrl').value = destination.origin;
+      byId('accessDetails').open = true;
+      text('connectError','Pairing address ready. Check that it belongs to your PC before opening.');
+    } catch { text('connectError','This pairing address is invalid. Copy a fresh link from your own installation.'); }
+  }
 } else {
   restore();
 }
