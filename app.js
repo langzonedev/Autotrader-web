@@ -6,6 +6,7 @@ let csrf = '';
 let generation = 0;
 let refreshing = -1;
 let authenticated = false;
+const publicEntry = location.hostname === 'github.io' || location.hostname.endsWith('.github.io');
 async function request(path, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
@@ -82,6 +83,7 @@ async function mutate(path) {
 }
 byId('loginForm').addEventListener('submit',async event => {
   event.preventDefault();
+  if (publicEntry) return;
   const button = event.currentTarget.querySelector('button');
   button.disabled = true;
   generation++;
@@ -116,12 +118,29 @@ async function restore() {
   try { const session = await request('/api/session'); if (epoch !== generation) return; csrf = session.csrfToken; await refresh(); }
   catch (error) { if (epoch !== generation) return; if (!authenticated) { showLoggedIn(false); if (error.status!==401) text('loginError','Private backend unavailable. Open the configured application URL.'); } }
 }
-restore();
+byId('connectForm').addEventListener('submit', event => {
+  event.preventDefault();
+  try {
+    const destination = new URL(byId('privateUrl').value);
+    if (destination.protocol !== 'https:' || destination.username || destination.password ||
+        destination.search || destination.hash || destination.pathname !== '/') {
+      throw new Error('Use your trusted HTTPS application address without a path or credentials.');
+    }
+    location.assign(destination.origin + '/');
+  } catch (error) { text('connectError', error.message); }
+});
+if (publicEntry) {
+  byId('publicAccess').hidden = false;
+  byId('login').hidden = true;
+  text('connection', 'Local engine · private access');
+} else {
+  restore();
+}
 setInterval(() => { if (authenticated && !document.hidden) refresh().catch(() => {}); },30000);
 window.addEventListener('offline',() => { generation++; clearPrivate(); text('connection','Offline · connect to view private data'); });
 window.addEventListener('online',() => { if (authenticated) refresh().catch(() => {}); });
 window.addEventListener('pagehide',() => { generation++; clearPrivate(); });
-window.addEventListener('pageshow',event => { if (event.persisted) restore(); });
+window.addEventListener('pageshow',event => { if (event.persisted && !publicEntry) restore(); });
 if ('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }

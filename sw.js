@@ -1,5 +1,5 @@
 /* Exact public shell allowlist: authenticated responses never enter Cache Storage. */
-const CACHE = 'autotrader-ui-v3';
+const CACHE = 'autotrader-ui-v4';
 const ASSETS = ['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 const urls = new Set(ASSETS.map(path => new URL(path,self.registration.scope).href));
 self.addEventListener('install',event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))));

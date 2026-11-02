@@ -4,16 +4,17 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const source = fs.readFileSync(process.argv[2] || __dirname+'/../app.js','utf8');
 const tick = () => new Promise(resolve => setImmediate(resolve));
-function setup() {
+function setup(hostname = 'localhost') {
   const elements = {}, pending = [], listeners = {};
   function element(id) { return elements[id] ||= {hidden:false,textContent:'',disabled:false,events:{},children:[],
     addEventListener(type,fn) { this.events[type]=fn; },replaceChildren() { this.children=[]; },append(x) { this.children.push(x); }}; }
   const context = {document:{hidden:false,getElementById:element,createElement:()=>({textContent:'',append(){}})},
     window:{addEventListener(type,fn){listeners[type]=fn;}},navigator:{},location:{protocol:'http:',hostname:'localhost'},
-    Intl,AbortController,setTimeout,clearTimeout,setInterval(){},fetch:async(path,options)=> {
+    URL,Intl,AbortController,setTimeout,clearTimeout,setInterval(){},fetch:async(path,options)=> {
       if(path==='/api/session') return {ok:false,status:401,json:async()=>({error:'unauthenticated'})};
       return new Promise(resolve=>pending.push({path,resolve}));
     }};
+  context.location.hostname = hostname;
   vm.createContext(context); vm.runInContext(source,context);
   return {elements,pending,listeners,run:code=>vm.runInContext(code,context)};
 }
@@ -43,4 +44,15 @@ async function duringLogout() {
   assert.equal(h.elements.dashboard.hidden,true,'Refresh begun during sign-out resurrected private dashboard');
   assert.equal(h.elements.equity.textContent,'—');
 }
-(async()=>{await beforeLogout();console.log('PASS refresh begun before logout');await duringLogout();console.log('PASS refresh begun during logout');})().catch(error=>{console.error(error.message);process.exitCode=1;});
+async function publicEntry() {
+  const h=setup('langzonedev.github.io'); await tick();
+  assert.equal(h.elements.publicAccess.hidden,false);
+  assert.equal(h.elements.login.hidden,true);
+  assert.equal(h.pending.length,0,'Public Pages entry contacted private APIs');
+  await h.elements.loginForm.events.submit({preventDefault(){}, currentTarget:{querySelector(){throw Error('Public login must not submit');}}});
+  assert.equal(h.pending.length,0);
+  h.run("byId('privateUrl').value='http://unsafe.example'");
+  h.elements.connectForm.events.submit({preventDefault(){}});
+  assert.match(h.elements.connectError.textContent,/trusted HTTPS/);
+}
+(async()=>{await beforeLogout();console.log('PASS refresh begun before logout');await duringLogout();console.log('PASS refresh begun during logout');await publicEntry();console.log('PASS Pages never submits private credentials or permits HTTP remote addresses');})().catch(error=>{console.error(error.message);process.exitCode=1;});
