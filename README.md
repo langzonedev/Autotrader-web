@@ -17,6 +17,7 @@ node --check app.js
 node --check sw.js
 node tests/privacy.cjs
 node tests/session-races.cjs
+node tests/risk-controls.cjs
 ```
 
 CI runs these checks. Tests use generic synthetic response fixtures only. The cloud-browser preview inspected the disconnected public shell; it did not run on a Samsung phone or verify hosted backend authentication. No remote deployment was created by this commit.
@@ -26,3 +27,5 @@ The login form protects no static source. Real authorisation is server-side. Kee
 Public frontend entry: https://langzonedev.github.io/Autotrader-web/ . The private backend runs separately on the engine PC; Pages has no login password or private data. The SVG product icon matches the existing arrow treatment and removes the retired LS monogram.
 
 The current Pages entry now hides the password form, explains the desktop installation steps and opens the local dashboard or a manually supplied trusted HTTPS application address. It never submits private credentials to Pages. The Windows paper app in the private repository creates a unique password per PC; optional private VPN access serves that same authenticated application. Pages itself has no connection to the ledger and no live account information.
+
+Version 0.3 adds an authenticated paper-profile slider. Limits/descriptions come from the private backend; preview does not save until Apply. Revision conflicts refresh authoritative state, and logout/expiry clears private controls. The profile cannot enable live trading. Address-only pairing links use `#connect=…` to prefill a trusted HTTPS address for explicit navigation, without credentials or automatic login. Each owner uses their own backend and private VPN account. CoinSpot keys are entered only in the native desktop setup wizard.
