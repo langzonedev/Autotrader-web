@@ -23,4 +23,6 @@ CI runs these checks. Tests use generic synthetic response fixtures only. The cl
 
 The login form protects no static source. Real authorisation is server-side. Keep private data, provider account configuration and proprietary trading logic in the private repository. See its operations/evidence documents for TLS, sessions, backup and paper-model limitations.
 
-Public frontend preview: https://langzonedev.github.io/Autotrader-web/ . The private backend must be hosted separately before a real login can work; no active login password has been provisioned. The SVG product icon now matches the existing arrow treatment and removes the retired LS monogram.
+Public frontend entry: https://langzonedev.github.io/Autotrader-web/ . The private backend runs separately on the engine PC; Pages has no login password or private data. The SVG product icon matches the existing arrow treatment and removes the retired LS monogram.
+
+The current Pages entry now hides the password form, explains the desktop installation steps and opens the local dashboard or a manually supplied trusted HTTPS application address. It never submits private credentials to Pages. The Windows paper app in the private repository creates a unique password per PC; optional private VPN access serves that same authenticated application. Pages itself has no connection to the ledger and no live account information.
